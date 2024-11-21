@@ -1,8 +1,9 @@
-package common;
-
 public enum Request {
+    REG,
+    LOG,
     GET,
     PUT,
     MULTIPUT,
-    MULTIGET
+    MULTIGET,
+    TERM
 }

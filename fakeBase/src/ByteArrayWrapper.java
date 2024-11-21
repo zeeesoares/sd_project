@@ -1,5 +1,3 @@
-package common;
-
 import java.io.*;
 import java.util.Arrays;
 
@@ -23,7 +21,6 @@ public class ByteArrayWrapper {
         out.writeInt(this.length());
         out.write(this.getValue());
     }
-
 
     public boolean equals(ByteArrayWrapper other) {
         return Arrays.equals(this.value, other.value);
