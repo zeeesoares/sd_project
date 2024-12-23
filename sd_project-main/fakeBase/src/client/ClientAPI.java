@@ -1,79 +1,91 @@
 package client;
 
+import protocol.Demultiplexer;
 import protocol.TaggedConnection;
-import protocol.TaggedFrame;
-
+import java.io.IOException;
+import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-//Atualizei o resto
+public class ClientAPI implements AutoCloseable {
 
-public class ClientAPI {
+    private final Demultiplexer demux;
 
-    private TaggedConnection connection;
-
-    public enum RequestType {PUT, GET, MULTIPUT, MULTIGET, GETWHEN}
-
-    public ClientAPI(String host, int port) throws Exception {
-        connection = new TaggedConnection(new java.net.Socket(host, port));
+    public ClientAPI(String host, int port) throws IOException {
+        Socket socket = new Socket(host, port);
+        this.demux = new Demultiplexer(new TaggedConnection(socket));
+        this.demux.start();
     }
 
-    public void put(String key, byte[] value) throws Exception {
-        String payload = key + ":" + new String(value);
-        connection.send(new TaggedFrame(2, payload.getBytes()));
-
-        TaggedFrame response = connection.receive();
-        System.out.println("PUT Response: " + new String(response.getData()));
+    @Override
+    public void close() throws IOException {
+        this.demux.close();
     }
 
-    public byte[] get(String key) throws Exception {
-        connection.send(new TaggedFrame(3, key.getBytes()));
-        TaggedFrame response = connection.receive();
-        return response.getData();
+    /**
+     * Registra ou autentica um usuário no servidor.
+     * @param username Nome do usuário.
+     * @param password Senha do usuário.
+     * @return Resposta do servidor indicando o sucesso ou falha.
+     */
+    public String registerOrAuthenticate(String username, String password) throws IOException, InterruptedException {
+        String authData = username + ":" + password;
+        demux.send(1, authData.getBytes());
+        byte[] response = demux.receive(1);
+        System.out.println(response);
+        return new String(response);
     }
 
-    public void multiPut(Map<String, byte[]> pairs) throws Exception {
-        StringBuilder payload = new StringBuilder();
-        for (Map.Entry<String, byte[]> entry : pairs.entrySet()) {
-            payload.append(entry.getKey()).append(":").append(new String(entry.getValue())).append(";");
+    public String put(String key, String value) throws IOException, InterruptedException {
+        String putData = key + ":" + value;
+        demux.send(2, putData.getBytes());
+        byte[] response = demux.receive(2);
+        return new String(response);
+    }
+
+    public String get(String key) throws IOException, InterruptedException {
+        demux.send(3, key.getBytes());
+        byte[] response = demux.receive(3);
+        return new String(response);
+    }
+
+    public String multiPut(Map<String, String> keyValuePairs) throws IOException, InterruptedException {
+        StringBuilder requestBuilder = new StringBuilder();
+
+        for (Map.Entry<String, String> entry : keyValuePairs.entrySet()) {
+            requestBuilder.append(entry.getKey())
+                    .append(":")
+                    .append(entry.getValue())
+                    .append(";");
         }
-        connection.send(new TaggedFrame(5, payload.toString().getBytes()));
 
-        TaggedFrame response = connection.receive();
-        System.out.println("MULTIPUT Response: " + new String(response.getData()));
+        demux.send(4, requestBuilder.toString().getBytes());
+
+        byte[] response = demux.receive(4);
+        return new String(response);
     }
 
-    public Map<String, byte[]> multiGet(Set<String> keys) throws Exception {
-        StringBuilder payload = new StringBuilder();
+    public Map<String, String> multiGet(Set<String> keys) throws IOException, InterruptedException {
+        StringBuilder requestBuilder = new StringBuilder();
+
         for (String key : keys) {
-            payload.append(key).append(";");
+            requestBuilder.append(key).append(";");
         }
-        connection.send(new TaggedFrame(4, payload.toString().getBytes()));
-        TaggedFrame response = connection.receive();
 
-        Map<String, byte[]> results = new HashMap<>();
-        String[] pairs = new String(response.getData()).split(";");
-        for (String pair : pairs) {
-            if (!pair.isEmpty()) {
-                String[] keyValue = pair.split(":");
-                if (keyValue.length == 2) {
-                    results.put(keyValue[0], keyValue[1].getBytes());
-                }
+        demux.send(5, requestBuilder.toString().getBytes());
+
+        byte[] response = demux.receive(5);
+
+        Map<String, String> result = new HashMap<>();
+        String[] keyValuePairs = new String(response).split(";");
+        for (String pair : keyValuePairs) {
+            String[] keyValue = pair.split(":");
+            if (keyValue.length == 2) {
+                result.put(keyValue[0], keyValue[1]);
             }
         }
-        return results;
-    }
 
-    public byte[] getWhen(String key, String keyCond, byte[] valueCond) throws Exception {
-        String payload = key + ":" + keyCond + ":" + new String(valueCond);
-        connection.send(new TaggedFrame(6, payload.getBytes()));
-        TaggedFrame response = connection.receive();
-        return response.getData();
-    }
-
-    public void close() throws Exception {
-        connection.close();
+        return result;
     }
 }
-

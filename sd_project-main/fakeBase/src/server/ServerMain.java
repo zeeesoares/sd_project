@@ -3,13 +3,11 @@ package server;
 import common.KeyValueStore;
 import protocol.TaggedConnection;
 import protocol.TaggedFrame;
-
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-//Atualizei o resto
 
 public class ServerMain {
     private static final int MAX_SESSIONS = 5; // Máximo de sessões concorrentes
@@ -43,39 +41,52 @@ public class ServerMain {
         while (true) {
             TaggedFrame frame = conn.receive();
 
-            if (frame == null) {
-                break;
-            }
-
-            int tag = frame.getTag();
-            byte[] data = frame.getData();
+            int tag = frame.getTag(); // Identifica o tipo de operação
+            byte[] data = frame.getData(); // Dados associados à operação
 
             switch (tag) {
-                case 1: // Registo de utilizador
-                    handleRegister(conn, data);
+                case 3: // Registo ou autenticação de utilizador
+                    handleRegisterOrAuthenticate(conn, data);
                     break;
-                case 2: // Operação PUT
+                case 4: // Operação PUT
                     handlePut(conn, data);
                     break;
-                case 3: // Operação GET
+                case 5: // Operação GET
                     handleGet(conn, data);
                     break;
-                case 4:// Operação Multiget
-                    handleMultiGet(conn, data);
-                    break;
-                case 5: // Operação Multiput
+                case 6: // MultiPut
                     handleMultiPut(conn, data);
                     break;
-                case 6: // Operação getWhen
-                    handleGetWhen(conn, data);
+                case 7: // MultiGet
+                    handleMultiGet(conn, data);
                     break;
                 default:
-                    conn.send(new TaggedFrame(0, "Unknown command".getBytes())); // Resposta de comando desconhecido
+                    conn.send(new TaggedFrame(0, "Unknown command".getBytes()));
                     break;
             }
         }
     }
 
+    // Handle de Registo ou Autenticação
+    private static void handleRegisterOrAuthenticate(TaggedConnection conn, byte[] data) throws IOException {
+        String[] credentials = new String(data).split(":");
+        if (credentials.length == 2) {
+            String username = credentials[0];
+            String password = credentials[1];
+
+            if (authManager.authenticate(username, password)) {
+                conn.send(new TaggedFrame(1, "Authentication successful".getBytes()));
+            } else if (authManager.register(username, password)) {
+                conn.send(new TaggedFrame(1, "New account registered".getBytes()));
+            } else {
+                conn.send(new TaggedFrame(1, "Authentication failed: Incorrect password".getBytes()));
+            }
+        } else {
+            conn.send(new TaggedFrame(1, "Invalid format".getBytes()));
+        }
+    }
+
+    // Handle de PUT
     private static void handlePut(TaggedConnection conn, byte[] data) throws IOException {
         String[] keyValue = new String(data).split(":");
         if (keyValue.length == 2) {
@@ -83,94 +94,61 @@ public class ServerMain {
             String value = keyValue[1];
 
             keyValueStore.put(key, value.getBytes());
-            conn.send(new TaggedFrame(0, "Put successful".getBytes()));
+            conn.send(new TaggedFrame(2, "Put successful".getBytes()));
         } else {
-            conn.send(new TaggedFrame(0, "Invalid PUT format".getBytes()));
+            conn.send(new TaggedFrame(2, "Invalid PUT format".getBytes()));
         }
     }
 
+    // Handle de GET
     private static void handleGet(TaggedConnection conn, byte[] data) throws IOException {
         String key = new String(data);
 
         byte[] value = keyValueStore.get(key);
         if (value != null) {
-            conn.send(new TaggedFrame(0, value));
+            conn.send(new TaggedFrame(3, value));
         } else {
-            conn.send(new TaggedFrame(0, "Key not found".getBytes()));
+            conn.send(new TaggedFrame(3, "Key not found".getBytes()));
         }
     }
 
-    private static void handleMultiGet(TaggedConnection conn, byte[] data) throws IOException {
-        String[] keysArray = new String(data).split(";");
-        Set<String> keys = new HashSet<>(Arrays.asList(keysArray));
+    private static void handleMultiPut(TaggedConnection conn, byte[] data) throws IOException {
+        String[] keyValuePairs = new String(data).split(";");
+        Map<String, byte[]> pairs = new HashMap<>();
 
-        Map<String, byte[]> results = keyValueStore.multiGet(keys);
-        if (results.isEmpty()) {
-            conn.send(new TaggedFrame(0, "No keys found".getBytes()));
-            return;
+        for (String pair : keyValuePairs) {
+            String[] keyValue = pair.split(":");
+            if (keyValue.length == 2) {
+                pairs.put(keyValue[0], keyValue[1].getBytes());
+            } else {
+                conn.send(new TaggedFrame(4, "Invalid MULTIPUT format".getBytes()));
+                return;
+            }
         }
 
-        StringBuilder serializedResult = new StringBuilder();
-        for (Map.Entry<String, byte[]> entry : results.entrySet()) {
-            serializedResult.append(entry.getKey())
+        keyValueStore.multiPut(pairs);
+        conn.send(new TaggedFrame(4, "MultiPut successful".getBytes()));
+    }
+
+    private static void handleMultiGet(TaggedConnection conn, byte[] data) throws IOException {
+        String[] keys = new String(data).split(";");
+        Map<String, byte[]> result = new HashMap<>();
+
+        for (String key : keys) {
+            byte[] value = keyValueStore.get(key);
+            if (value != null) {
+                result.put(key, value);
+            }
+        }
+
+        StringBuilder responseBuilder = new StringBuilder();
+        for (Map.Entry<String, byte[]> entry : result.entrySet()) {
+            responseBuilder.append(entry.getKey())
                     .append(":")
                     .append(new String(entry.getValue()))
                     .append(";");
         }
 
-        conn.send(new TaggedFrame(0, serializedResult.toString().getBytes()));
-    }
-
-    private static void handleMultiPut(TaggedConnection conn, byte[] data) throws IOException {
-        String[] pairs = new String(data).split(";");
-        Map<String, byte[]> keyValuePairs = new HashMap<>();
-
-        for (String pair : pairs) {
-            String[] keyValue = pair.split(":");
-            if (keyValue.length == 2) {
-                keyValuePairs.put(keyValue[0], keyValue[1].getBytes());
-            } else {
-                conn.send(new TaggedFrame(0, "Invalid MULTIPUT format".getBytes()));
-                return;
-            }
-        }
-
-        keyValueStore.multiPut(keyValuePairs);
-
-        conn.send(new TaggedFrame(0, "multiPut successful".getBytes()));
-    }
-
-    private static void handleGetWhen(TaggedConnection conn, byte[] data) throws IOException {
-        String[] params = new String(data).split(":");
-        if (params.length == 3) {
-            String key = params[0];
-            String keyCond = params[1];
-            byte[] valueCond = params[2].getBytes();
-
-            try {
-                byte[] value = keyValueStore.getWhen(key, keyCond, valueCond);
-                conn.send(new TaggedFrame(0, value));
-            } catch (InterruptedException e) {
-                conn.send(new TaggedFrame(0, "Operation interrupted".getBytes()));
-            }
-        } else {
-            conn.send(new TaggedFrame(0, "Invalid GETWHEN format".getBytes()));
-        }
-    }
-
-    private static void handleRegister(TaggedConnection conn, byte[] data) throws IOException {
-        String[] credentials = new String(data).split(":");
-        if (credentials.length == 2) {
-            String username = credentials[0];
-            String password = credentials[1];
-
-            if (authManager.register(username, password)) {
-                conn.send(new TaggedFrame(0, "Registration successful".getBytes()));
-            } else {
-                conn.send(new TaggedFrame(0, "Registration failed".getBytes()));
-            }
-        } else {
-            conn.send(new TaggedFrame(0, "Invalid REGISTER format".getBytes()));
-        }
+        conn.send(new TaggedFrame(5, responseBuilder.toString().getBytes()));
     }
 }
