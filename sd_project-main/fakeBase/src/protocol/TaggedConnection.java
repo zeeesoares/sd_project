@@ -36,6 +36,7 @@ public class TaggedConnection implements AutoCloseable {
         try {
             TaggedFrame frame = new TaggedFrame(tag,data);
             frame.serialize(out);
+            out.flush();
         } finally {
             this.wLock.unlock();
         }

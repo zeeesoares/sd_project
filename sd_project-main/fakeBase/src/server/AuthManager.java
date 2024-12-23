@@ -1,10 +1,10 @@
 package server;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
+import java.util.Map;;
 
 public class AuthManager {
-    private final Map<String, String> userDatabase = new ConcurrentHashMap<>();
+    private final Map<String, String> userDatabase = new HashMap<>();
 
     /**
      * Registra um novo usuário no sistema.

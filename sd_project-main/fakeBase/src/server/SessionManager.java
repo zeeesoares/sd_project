@@ -29,7 +29,7 @@ public class SessionManager {
         lock.lock();
         try {
             currentSessions--;
-            sessionAvailable.signalAll();
+            sessionAvailable.signal();
         } finally {
             lock.unlock();
         }
