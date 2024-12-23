@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="62dae940-00b8-495c-8274-26da090914e7" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/fakeBase/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/fakeBase/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fakeBase/src/client/ClientInterface.java" beforeDir="false" afterPath="$PROJECT_DIR$/fakeBase/src/client/ClientInterface.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fakeBase/src/protocol/TaggedFrame.java" beforeDir="false" afterPath="$PROJECT_DIR$/fakeBase/src/protocol/TaggedFrame.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fakeBase/src/server/AuthManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/fakeBase/src/server/AuthManager.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fakeBase/src/server/ClientHandler.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fakeBase/src/server/ServerMain.java" beforeDir="false" afterPath="$PROJECT_DIR$/fakeBase/src/server/ServerMain.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fakeBase/src/tests/AutomatedTestClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/fakeBase/src/tests/AutomatedTestClient.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fakeBase/src/tests/Benchmark.java" beforeDir="false" afterPath="$PROJECT_DIR$/fakeBase/src/tests/Benchmark.java" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 2
+}</component>
+  <component name="ProjectId" id="2qclXHBrMUBiKNW2oUA75Veu0rc" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/zeee/sd_project&quot;
+  }
+}</component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="62dae940-00b8-495c-8274-26da090914e7" name="Changes" comment="" />
+      <created>1734969782070</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1734969782070</updated>
+    </task>
+    <servers />
+  </component>
+</project>

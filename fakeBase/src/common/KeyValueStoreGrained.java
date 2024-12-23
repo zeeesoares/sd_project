@@ -10,11 +10,11 @@ import java.util.Collections;
 
 public class KeyValueStoreGrained {
     private final Map<String, byte[]> store = new HashMap<>();
-    private final Map<String, ReentrantLock> locks = new HashMap<>(); // Locks por chave
-    private final ReentrantLock globalLock = new ReentrantLock(); // Lock para sincronizar acesso ao mapa de locks
+    private final Map<String, ReentrantLock> locks = new HashMap<>(); 
+    private final ReentrantLock globalLock = new ReentrantLock(); 
 
     private ReentrantLock getLockForKey(String key) {
-        globalLock.lock(); // Garante que o acesso ao mapa de locks é thread-safe
+        globalLock.lock(); // acesso ao mapa de locks thread-safe
         try {
             return locks.computeIfAbsent(key, k -> new ReentrantLock());
         } finally {

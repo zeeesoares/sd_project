@@ -10,7 +10,7 @@ import java.util.concurrent.Executors;
 
 public class AutomatedTestClient {
 
-    private static final int NUM_REQUESTS = 1000000; // Número de requisições automáticas
+    private static final int NUM_REQUESTS = 1000; // Número de requisições automáticas
     private static final String SERVER_HOST = "localhost";
     private static final int SERVER_PORT = 12345;
 
@@ -27,7 +27,7 @@ public class AutomatedTestClient {
                 int finalI = i;
                 executor.submit((Callable<Void>) () -> {
                     try {
-                        if (finalI % 2 == 0) {
+                        if (finalI % 2 != 0) {
                             String key = "key" + finalI;
                             String value = "value" + finalI;
                             performPut(connector, key, value);

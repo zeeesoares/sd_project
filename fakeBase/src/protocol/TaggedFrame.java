@@ -35,4 +35,10 @@ public class TaggedFrame {
         return new TaggedFrame(tag, data);
         
     }
+
+
+    @Override
+    public String toString() {
+        return "Tag: " + this.tag + " | Data: " + this.data.toString();
+    }
 }

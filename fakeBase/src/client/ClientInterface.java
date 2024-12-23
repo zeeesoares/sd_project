@@ -10,12 +10,18 @@ public class ClientInterface {
         try (Scanner scanner = new Scanner(System.in)) {
             ClientAPI clientAPI = new ClientAPI("localhost", 12345);
 
-            System.out.println("Enter username and password for registration (format: username:password): ");
+            System.out.println("Enter username and password for registration [format -> username:password]: ");
             String[] registrationData = scanner.nextLine().split(":");
             String registrationResponse = clientAPI.register(registrationData[0], registrationData[1]);
+
+            if (registrationResponse.equals("Connection failed")) {
+                System.out.println("Connection failed. Exiting...");
+                clientAPI.close();
+                return;
+            }
+
             System.out.println("Registration Response: " + registrationResponse);
 
-            // Loop principal para operações
             while (true) {
                 System.out.println("\nChoose an operation:");
                 System.out.println("1 - PUT (Store a value)");
@@ -24,7 +30,7 @@ public class ClientInterface {
                 System.out.println("4 - MULTIGET (Retrieve multiple values by keys)");
                 System.out.println("5 - EXIT");
                 int choice = scanner.nextInt();
-                scanner.nextLine();
+                scanner.nextLine();  // Consumir a nova linha após o número
 
                 switch (choice) {
                     case 1: // PUT: Armazenar chave e valor
