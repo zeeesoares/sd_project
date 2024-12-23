@@ -4,6 +4,8 @@ import common.KeyValueStore;
 import protocol.TaggedConnection;
 import protocol.TaggedFrame;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -14,6 +16,8 @@ public class ServerMain {
     private static final AuthManager authManager = new AuthManager();
     private static final SessionManager sessionManager = new SessionManager(MAX_SESSIONS);
     private static final KeyValueStore keyValueStore = new KeyValueStore();
+
+
     public static void main(String[] args) throws IOException, InterruptedException {
         ServerConnector connector = new ServerConnector(12345);
         System.out.println("Server is running on port 12345");
@@ -23,8 +27,9 @@ public class ServerMain {
 
             threadPool.submit(() -> {
                 try {
+                    sessionManager.acquireSession();
                     handleClient(conn);
-                } catch (IOException e) {
+                } catch (IOException | InterruptedException e) {
                     e.printStackTrace();
                 } finally {
                     sessionManager.releaseSession();
@@ -37,9 +42,6 @@ public class ServerMain {
         while (true) {
             TaggedFrame frame = conn.receive();
 
-            if (frame == null) {
-                break;
-            }
 
             int tag = frame.getTag(); // Identifica o tipo de operação
             byte[] data = frame.getData(); // Dados associados à operação
@@ -54,10 +56,29 @@ public class ServerMain {
                 case 3: // Operação GET
                     handleGet(conn, data);
                     break;
+                case 4: // MultiPut
+                    handleMultiPut(conn, data);
+                    break;
+                case 5: // MultiGet
+                    handleMultiGet(conn, data);
+                    break;
                 default:
-                    conn.send(new TaggedFrame(0, "Unknown command".getBytes())); // Resposta de comando desconhecido
+                    conn.send(new TaggedFrame(0, "Unknown command".getBytes()));
                     break;
             }
+        }
+    }
+
+    // Handle de Register
+    private static void handleRegister(TaggedConnection conn, byte[] data) throws IOException {
+        String[] credentials = new String(data).split(":");
+        String username = credentials[0];
+        String password = credentials[1];
+
+        if (authManager.register(username, password)) {
+            conn.send(new TaggedFrame(1, "Registration successful".getBytes()));
+        } else {
+            conn.send(new TaggedFrame(1, "Registration failed".getBytes()));
         }
     }
 
@@ -69,7 +90,7 @@ public class ServerMain {
 
         keyValueStore.put(key, value.getBytes());
 
-        conn.send(new TaggedFrame(0, "Put successful".getBytes()));
+        conn.send(new TaggedFrame(2, "Put successful".getBytes()));
     }
 
     // Handle de GET
@@ -78,23 +99,54 @@ public class ServerMain {
 
         byte[] value = keyValueStore.get(key);
         if (value != null) {
-            conn.send(new TaggedFrame(0, value));
+            conn.send(new TaggedFrame(3, value));
         } else {
-            conn.send(new TaggedFrame(0, "Key not found".getBytes()));
+            conn.send(new TaggedFrame(3, "Key not found".getBytes()));
         }
     }
 
-    private static void handleRegister(TaggedConnection conn, byte[] data) throws IOException {
-        String[] credentials = new String(data).split(":");
-        String username = credentials[0];
-        String password = credentials[1];
-
-        if (authManager.register(username, password)) {
-            conn.send(new TaggedFrame(0, "Registration successful".getBytes()));
-        } else {
-            conn.send(new TaggedFrame(0, "Registration failed".getBytes()));
+    private static void handleMultiPut(TaggedConnection conn, byte[] data) throws IOException {
+        String[] keyValuePairs = new String(data).split(";");
+        Map<String, byte[]> pairs = new HashMap<>();
+    
+        for (String pair : keyValuePairs) {
+            String[] keyValue = pair.split(":");
+            String key = keyValue[0];
+            String value = keyValue[1];
+            pairs.put(key, value.getBytes());
         }
+    
+        for (Map.Entry<String, byte[]> entry : pairs.entrySet()) {
+            keyValueStore.put(entry.getKey(), entry.getValue());
+        }
+    
+        conn.send(new TaggedFrame(4, "MultiPut successful".getBytes()));
     }
+
+    private static void handleMultiGet(TaggedConnection conn, byte[] data) throws IOException {
+        String[] keys = new String(data).split(";");
+        Map<String, byte[]> result = new HashMap<>();
+    
+        for (String key : keys) {
+            byte[] value = keyValueStore.get(key);
+            if (value != null) {
+                result.put(key, value);
+            }
+        }
+    
+        StringBuilder responseBuilder = new StringBuilder();
+        for (Map.Entry<String, byte[]> entry : result.entrySet()) {
+            responseBuilder.append(entry.getKey())
+                    .append(":")
+                    .append(new String(entry.getValue()))
+                    .append(";");
+        }
+    
+        conn.send(new TaggedFrame(5, responseBuilder.toString().getBytes()));
+    }
+    
+    
+
 }
 
 
