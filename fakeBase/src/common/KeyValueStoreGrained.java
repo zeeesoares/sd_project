@@ -1,100 +1,92 @@
 package common;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.*;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class KeyValueStoreGrained {
-    private final Map<String, byte[]> store = new HashMap<>();
-    private final Map<String, ReentrantLock> locks = new HashMap<>(); 
-    private final ReentrantLock globalLock = new ReentrantLock(); 
 
-    private ReentrantLock getLockForKey(String key) {
-        globalLock.lock(); // acesso ao mapa de locks thread-safe
+    private final Map<String, byte[]> store = new HashMap<>();
+    private final Map<String, ReentrantReadWriteLock> locks = new HashMap<>();
+    private final ReentrantReadWriteLock globalLock = new ReentrantReadWriteLock();
+
+    private ReentrantReadWriteLock getLockForKey(String key) {
+        globalLock.writeLock().lock();
         try {
-            return locks.computeIfAbsent(key, k -> new ReentrantLock());
+            return locks.computeIfAbsent(key, k -> new ReentrantReadWriteLock());
         } finally {
-            globalLock.unlock();
+            globalLock.writeLock().unlock();
         }
     }
 
     public void put(String key, byte[] value) {
-        ReentrantLock keyLock = getLockForKey(key);
-        keyLock.lock();
+        ReentrantReadWriteLock keyLock = getLockForKey(key);
+        keyLock.writeLock().lock();
         try {
             store.put(key, value);
         } finally {
-            keyLock.unlock();
+            keyLock.writeLock().unlock();
         }
     }
 
     public byte[] get(String key) {
-        ReentrantLock keyLock = getLockForKey(key);
-        keyLock.lock();
+        ReentrantReadWriteLock keyLock = getLockForKey(key);
+        keyLock.readLock().lock();
         try {
             return store.get(key);
         } finally {
-            keyLock.unlock();
+            keyLock.readLock().unlock();
         }
     }
 
     public void multiPut(Map<String, byte[]> pairs) {
-        // Ordena as chaves para evitar deadlocks
         List<String> sortedKeys = new ArrayList<>(pairs.keySet());
-        Collections.sort(sortedKeys); // Ordena as chaves em ordem natural
-        Map<String, ReentrantLock> acquiredLocks = new HashMap<>();
+        Collections.sort(sortedKeys);
+        Map<String, ReentrantReadWriteLock> acquiredLocks = new HashMap<>();
 
         try {
-            // Adquire locks para todas as chaves na ordem
             for (String key : sortedKeys) {
-                ReentrantLock keyLock = getLockForKey(key);
-                keyLock.lock();
+                ReentrantReadWriteLock keyLock = getLockForKey(key);
+                keyLock.writeLock().lock();
                 acquiredLocks.put(key, keyLock);
             }
-
-            // Realiza o put de todas as chaves e valores
             for (Map.Entry<String, byte[]> entry : pairs.entrySet()) {
                 store.put(entry.getKey(), entry.getValue());
             }
         } finally {
-            // Libera todos os locks na ordem inversa
             for (int i = sortedKeys.size() - 1; i >= 0; i--) {
-                acquiredLocks.get(sortedKeys.get(i)).unlock();
+                acquiredLocks.get(sortedKeys.get(i)).writeLock().unlock();
             }
         }
     }
 
     public Map<String, byte[]> multiGet(Set<String> keys) {
-        // Ordena as chaves para evitar deadlocks
-        List<String> sortedKeys = new ArrayList<>(keys);
-        Collections.sort(sortedKeys); // Ordena as chaves em ordem natural
-        Map<String, ReentrantLock> acquiredLocks = new HashMap<>();
-        Map<String, byte[]> result = new HashMap<>();
+        Map<String, byte[]> snapshot;
 
+        globalLock.readLock().lock();
         try {
-            // Adquire locks para todas as chaves na ordem
-            for (String key : sortedKeys) {
-                ReentrantLock keyLock = getLockForKey(key);
-                keyLock.lock();
-                acquiredLocks.put(key, keyLock);
-            }
-
-            // Realiza o get de todas as chaves
-            for (String key : keys) {
-                if (store.containsKey(key)) {
-                    result.put(key, store.get(key));
-                }
-            }
+            snapshot = new HashMap<>(store);
         } finally {
-            // Libera todos os locks na ordem inversa
-            for (int i = sortedKeys.size() - 1; i >= 0; i--) {
-                acquiredLocks.get(sortedKeys.get(i)).unlock();
+            globalLock.readLock().unlock();
+        }
+
+        Map<String, byte[]> result = new HashMap<>();
+        for (String key : keys) {
+            if (snapshot.containsKey(key)) {
+                result.put(key, snapshot.get(key));
             }
         }
         return result;
+    }
+
+    public void preload(Map<String, byte[]> initialData) {
+        globalLock.writeLock().lock();
+        try {
+            for (Map.Entry<String, byte[]> entry : initialData.entrySet()) {
+                store.put(entry.getKey(), entry.getValue());
+                locks.putIfAbsent(entry.getKey(), new ReentrantReadWriteLock());
+            }
+        } finally {
+            globalLock.writeLock().unlock();
+        }
     }
 }

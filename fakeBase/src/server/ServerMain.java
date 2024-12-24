@@ -16,7 +16,6 @@ public class ServerMain {
     private static final SessionManager sessionManager = new SessionManager(MAX_SESSIONS);
     private static final KeyValueStoreGrained keyValueStore = new KeyValueStoreGrained();
 
-    // ThreadPool para processar requisições
     private static final ThreadPool threadPool = new ThreadPool(THREAD_POOL_SIZE);
 
     public static void main(String[] args) throws IOException {
@@ -27,12 +26,11 @@ public class ServerMain {
             TaggedConnection conn = connector.accept();
 
             try {
-                sessionManager.acquireSession();
-
                 new Thread(() -> {
                     try {
+                        sessionManager.acquireSession();
                         handleClient(conn);
-                    } catch (IOException e) {
+                    } catch (IOException | InterruptedException e) {
                         System.out.println("Error handling client: " + e.getMessage());
                     } finally {
                         try {
@@ -44,8 +42,7 @@ public class ServerMain {
                     }
                 }).start();
 
-            } catch (InterruptedException e) {
-                System.out.println("Error acquiring session: " + e.getMessage());
+            } finally {
             }
         }
     }
