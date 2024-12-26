@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ServerMain {
-    private static final int MAX_SESSIONS = 10; // Máximo de sessões concorrentes
+    private static final int MAX_SESSIONS = 20; // Máximo de sessões concorrentes
     private static final int THREAD_POOL_SIZE = 8; // Tamanho do pool de threads
     private static final AuthManager authManager = new AuthManager();
     private static final SessionManager sessionManager = new SessionManager(MAX_SESSIONS);
@@ -31,7 +31,7 @@ public class ServerMain {
                         sessionManager.acquireSession();
                         handleClient(conn);
                     } catch (IOException | InterruptedException e) {
-                        System.out.println("Error handling client: " + e.getMessage());
+                        System.out.println("Cliente desconectado!");
                     } finally {
                         try {
                             conn.close();
@@ -81,6 +81,8 @@ public class ServerMain {
             case 5: // MultiGet
                 handleMultiGet(conn, data);
                 break;
+            case 6:
+                handleGetWhen(conn,data);
             default:
                 conn.send(new TaggedFrame(0, "Unknown command".getBytes()));
                 break;
@@ -168,5 +170,24 @@ public class ServerMain {
         }
 
         conn.send(new TaggedFrame(5, responseBuilder.toString().getBytes()));
+    }
+
+
+    private static void handleGetWhen(TaggedConnection conn, byte[] data) throws IOException {
+        String[] params = new String(data).split(":");
+        if (params.length == 3) {
+            String key = params[0];
+            String keyCond = params[1];
+            byte[] valueCond = params[2].getBytes();
+
+            try {
+                byte[] value = keyValueStore.getWhen(key, keyCond, valueCond);
+                conn.send(new TaggedFrame(6, value));
+            } catch (InterruptedException e) {
+                conn.send(new TaggedFrame(6, "Operation interrupted".getBytes()));
+            }
+        } else {
+            conn.send(new TaggedFrame(6, "Invalid GETWHEN format".getBytes()));
+        }
     }
 }

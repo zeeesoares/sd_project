@@ -81,6 +81,16 @@ public class ClientAPI implements AutoCloseable {
     
         return result;
     }
+
+    public byte[] getWhen(String key, String keyCond, byte[] valueCond) throws IOException, InterruptedException {
+        String request = key + ":" + keyCond + ":" + new String(valueCond);
+
+        demux.send(6, request.getBytes());
+
+        byte[] response = demux.receive(6);
+
+        return response;
+    }
     
     
 

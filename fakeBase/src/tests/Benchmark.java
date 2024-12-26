@@ -1,39 +1,36 @@
 package tests;
 
-import protocol.TaggedConnection;
-import protocol.TaggedFrame;
+import client.ClientAPI;
 
-import java.net.Socket;
+import java.io.FileReader;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.Properties;
 
 public class Benchmark {
 
     public static void main(String[] args) throws Exception {
-        final int NUM_CLIENTS = 8; // Número de clientes simulados
-        final int THREADS_PER_CLIENT = 5; // Threads internas por cliente
-        final int NUM_KEYS = 1000; // Número de chaves para operações
-        final int DURATION_SECONDS = 10; // Duração do teste
-        final float WRITE_FRACTION = 0.5f; // Fração de operações de escrita
-        final String SERVER_HOST = "localhost";
-        final int SERVER_PORT = 12345;
+        // Load workload configuration
+        Properties config = new Properties();
+        config.load(new FileReader("workload.properties"));
+
+        final int NUM_CLIENTS = Integer.parseInt(config.getProperty("num_clients", "8"));
+        final int THREADS_PER_CLIENT = Integer.parseInt(config.getProperty("threads_per_client", "5"));
+        final int NUM_KEYS = Integer.parseInt(config.getProperty("num_keys", "1000"));
+        final int DURATION_SECONDS = Integer.parseInt(config.getProperty("duration_seconds", "10"));
+        final float WRITE_FRACTION = Float.parseFloat(config.getProperty("write_fraction", "0.5"));
+        final String WORKLOAD_DISTRIBUTION = config.getProperty("workload_distribution", "uniform");
 
         ExecutorService clientExecutor = Executors.newFixedThreadPool(NUM_CLIENTS);
-        AtomicInteger totalOps = new AtomicInteger(0); // Contador de operações
-        AtomicLong totalLatency = new AtomicLong(0); // Soma de latências
-
-        System.out.println("Filling initial data...");
-        fillInitialData(NUM_KEYS, SERVER_HOST, SERVER_PORT);
-        System.out.println("Initial data filled. Starting benchmark...");
+        AtomicInteger totalOps = new AtomicInteger(0);
+        AtomicLong totalLatency = new AtomicLong(0);
 
         long endTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(DURATION_SECONDS);
 
         for (int i = 0; i < NUM_CLIENTS; i++) {
             clientExecutor.submit(() -> {
-                try (Socket socket = new Socket(SERVER_HOST, SERVER_PORT)) {
-                    TaggedConnection connection = new TaggedConnection(socket);
-
+                try (ClientAPI clientAPI = new ClientAPI("localhost", 12345)) {
                     ExecutorService clientThreads = Executors.newFixedThreadPool(THREADS_PER_CLIENT);
 
                     for (int t = 0; t < THREADS_PER_CLIENT; t++) {
@@ -41,15 +38,15 @@ public class Benchmark {
                             while (System.nanoTime() < endTime) {
                                 long start = System.nanoTime();
                                 try {
+                                    String key = generateKey(NUM_KEYS, WORKLOAD_DISTRIBUTION);
+
                                     if (Math.random() < WRITE_FRACTION) {
-                                        // Operação PUT
-                                        String key = "key" + (totalOps.get() % NUM_KEYS);
+                                        // Write Operation
                                         String value = "value" + totalOps.get() + "-" + Math.random();
-                                        performPut(connection, key, value);
+                                        clientAPI.put(key, value);
                                     } else {
-                                        // Operação GET
-                                        String key = "key" + (totalOps.get() % NUM_KEYS);
-                                        performGet(connection, key);
+                                        // Read Operation
+                                        clientAPI.get(key);
                                     }
                                     totalOps.incrementAndGet();
                                 } catch (Exception e) {
@@ -73,8 +70,8 @@ public class Benchmark {
         clientExecutor.awaitTermination(DURATION_SECONDS + 1, TimeUnit.SECONDS);
 
         long totalDuration = TimeUnit.NANOSECONDS.toMillis(TimeUnit.SECONDS.toNanos(DURATION_SECONDS));
-        double throughput = totalOps.get() / (totalDuration / 1000.0); // Operações por segundo
-        double avgLatency = totalLatency.get() / (1_000_000.0 * totalOps.get()); // Latência média em ms
+        double throughput = totalOps.get() / (totalDuration / 1000.0);
+        double avgLatency = totalLatency.get() / (1_000_000.0 * totalOps.get());
 
         System.out.println("Benchmark Results:");
         System.out.println("Total Operations: " + totalOps.get());
@@ -82,30 +79,31 @@ public class Benchmark {
         System.out.println("Throughput (ops/sec): " + throughput);
     }
 
-    private static void fillInitialData(int numKeys, String host, int port) {
-        try (Socket socket = new Socket(host, port)) {
-            TaggedConnection connection = new TaggedConnection(socket);
-
-            for (int i = 0; i < numKeys; i++) {
-                String key = "key" + i;
-                String value = "initialValue" + i;
-                performPut(connection, key, value);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+    private static String generateKey(int numKeys, String distribution) {
+        switch (distribution) {
+            case "zipfian":
+                return "key" + zipfian(numKeys);
+            default:
+                return "key" + ThreadLocalRandom.current().nextInt(numKeys);
         }
     }
 
-    private static void performPut(TaggedConnection connection, String key, String value) throws Exception {
-        String data = key + ":" + value;
-        TaggedFrame putFrame = new TaggedFrame(2, data.getBytes());
-        connection.send(putFrame);
-        connection.receive(); // Aguarda resposta
-    }
+    private static int zipfian(int numKeys) {
+        double skew = 1.0; // Control the skewness
+        double rand = Math.random();
+        double sum = 0;
+        double harmonicSum = 0;
 
-    private static void performGet(TaggedConnection connection, String key) throws Exception {
-        TaggedFrame getFrame = new TaggedFrame(3, key.getBytes());
-        connection.send(getFrame);
-        connection.receive(); // Aguarda resposta
+        for (int i = 1; i <= numKeys; i++) {
+            harmonicSum += 1.0 / Math.pow(i, skew);
+        }
+
+        for (int i = 1; i <= numKeys; i++) {
+            sum += (1.0 / Math.pow(i, skew)) / harmonicSum;
+            if (rand <= sum) {
+                return i - 1;
+            }
+        }
+        return numKeys - 1;
     }
 }
