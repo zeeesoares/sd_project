@@ -6,7 +6,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class TaggedConnection implements AutoCloseable {
 
-    private TaggedFrame frame;
     private Socket socket;
     private DataInputStream in;
     private DataOutputStream out;

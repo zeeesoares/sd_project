@@ -15,7 +15,7 @@ public class RequestQueue {
         lock.lock();
         try {
             queue.add(task);
-            notEmpty.signal();
+            notEmpty.signal(); // Notifica que a fila não está mais vazia
         } finally {
             lock.unlock();
         }
@@ -25,9 +25,18 @@ public class RequestQueue {
         lock.lock();
         try {
             while (queue.isEmpty()) {
-                notEmpty.await();
+                notEmpty.await(); // Espera até que haja uma tarefa na fila
             }
-            return queue.poll();
+            return queue.poll(); // Retorna e remove a próxima tarefa da fila
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public boolean isEmpty() {
+        lock.lock();
+        try {
+            return queue.isEmpty(); // Verifica se a fila está vazia
         } finally {
             lock.unlock();
         }

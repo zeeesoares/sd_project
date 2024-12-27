@@ -6,12 +6,15 @@ import protocol.TaggedConnection;
 import protocol.TaggedFrame;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class ServerMain {
-    private static final int MAX_SESSIONS = 20; // Máximo de sessões concorrentes
-    private static final int THREAD_POOL_SIZE = 8; // Tamanho do pool de threads
+    private static final int MAX_SESSIONS = 1; // Máximo de sessões concorrentes
+    private static final int THREAD_POOL_SIZE = 16; // Tamanho do pool de threads
     private static final AuthManager authManager = new AuthManager();
     private static final SessionManager sessionManager = new SessionManager(MAX_SESSIONS);
     private static final KeyValueStoreGrained keyValueStore = new KeyValueStoreGrained();
@@ -151,15 +154,10 @@ public class ServerMain {
     }
 
     private static void handleMultiGet(TaggedConnection conn, byte[] data) throws IOException {
-        String[] keys = new String(data).split(";");
-        Map<String, byte[]> result = new HashMap<>();
+        String[] keysArray = new String(data).split(";");
+        Set<String> keys = new HashSet<>(Arrays.asList(keysArray));
 
-        for (String key : keys) {
-            byte[] value = keyValueStore.get(key);
-            if (value != null) {
-                result.put(key, value);
-            }
-        }
+        Map<String, byte[]> result = keyValueStore.multiGet(keys);
 
         StringBuilder responseBuilder = new StringBuilder();
         for (Map.Entry<String, byte[]> entry : result.entrySet()) {
@@ -173,6 +171,7 @@ public class ServerMain {
     }
 
 
+
     private static void handleGetWhen(TaggedConnection conn, byte[] data) throws IOException {
         String[] params = new String(data).split(":");
         if (params.length == 3) {
@@ -182,7 +181,11 @@ public class ServerMain {
 
             try {
                 byte[] value = keyValueStore.getWhen(key, keyCond, valueCond);
-                conn.send(new TaggedFrame(6, value));
+                if(value!=null){
+                    conn.send(new TaggedFrame(6, value));
+                }else{
+                    conn.send(new TaggedFrame(6, "Key not found".getBytes()));
+                }
             } catch (InterruptedException e) {
                 conn.send(new TaggedFrame(6, "Operation interrupted".getBytes()));
             }

@@ -39,10 +39,9 @@ public class Benchmark {
                                 long start = System.nanoTime();
                                 try {
                                     String key = generateKey(NUM_KEYS, WORKLOAD_DISTRIBUTION);
-
                                     if (Math.random() < WRITE_FRACTION) {
                                         // Write Operation
-                                        String value = "value" + totalOps.get() + "-" + Math.random();
+                                        String value = "value" + totalOps.get() + "-" + ThreadLocalRandom.current().nextInt(NUM_KEYS);
                                         clientAPI.put(key, value);
                                     } else {
                                         // Read Operation
