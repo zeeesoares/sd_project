@@ -13,8 +13,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class ServerMain {
-    private static final int MAX_SESSIONS = 1; // Máximo de sessões concorrentes
-    private static final int THREAD_POOL_SIZE = 16; // Tamanho do pool de threads
+    private static final int MAX_SESSIONS = 64; // Máximo de sessões concorrentes
+    private static final int THREAD_POOL_SIZE = 32; // Tamanho do pool de threads
     private static final AuthManager authManager = new AuthManager();
     private static final SessionManager sessionManager = new SessionManager(MAX_SESSIONS);
     private static final KeyValueStoreGrained keyValueStore = new KeyValueStoreGrained();
@@ -84,7 +84,7 @@ public class ServerMain {
             case 5: // MultiGet
                 handleMultiGet(conn, data);
                 break;
-            case 6:
+            case 6:// GetWhen
                 handleGetWhen(conn,data);
             default:
                 conn.send(new TaggedFrame(0, "Unknown command".getBytes()));

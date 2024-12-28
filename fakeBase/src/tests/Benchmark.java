@@ -39,6 +39,7 @@ public class Benchmark {
                                 long start = System.nanoTime();
                                 try {
                                     String key = generateKey(NUM_KEYS, WORKLOAD_DISTRIBUTION);
+                                    //System.out.println(key);
                                     if (Math.random() < WRITE_FRACTION) {
                                         // Write Operation
                                         String value = "value" + totalOps.get() + "-" + ThreadLocalRandom.current().nextInt(NUM_KEYS);
@@ -70,11 +71,10 @@ public class Benchmark {
 
         long totalDuration = TimeUnit.NANOSECONDS.toMillis(TimeUnit.SECONDS.toNanos(DURATION_SECONDS));
         double throughput = totalOps.get() / (totalDuration / 1000.0);
-        double avgLatency = totalLatency.get() / (1_000_000.0 * totalOps.get());
+        
 
         System.out.println("Benchmark Results:");
         System.out.println("Total Operations: " + totalOps.get());
-        System.out.println("Average Latency (ms): " + avgLatency);
         System.out.println("Throughput (ops/sec): " + throughput);
     }
 
@@ -88,7 +88,7 @@ public class Benchmark {
     }
 
     private static int zipfian(int numKeys) {
-        double skew = 1.0; // Control the skewness
+        double skew = 1.5; // Podemos ajustar
         double rand = Math.random();
         double sum = 0;
         double harmonicSum = 0;
